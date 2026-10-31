@@ -3,9 +3,10 @@
 //! In menus a finger is the mouse (down = left click, moving drags). In the
 //! world the controls are drawn over the HUD (`draw_touch_controls`): a
 //! joystick, jump, sneak, sprint (a toggle), attack and
-//! use (held; the same finger turns the view), pause, chat, keyboard, inventory,
+//! use (held), pause, chat, keyboard, inventory,
 //! drop, F1/F2/F3/F5 and the layout editor (the gear). Hotbar slots select
-//! on tap. Anywhere else turns the view; a short tap there attacks the
+//! on tap. A finger that goes down on any of these never turns the view.
+//! Anywhere else turns the view; a short tap there attacks the
 //! entity under the crosshair or else uses (right click), and a finger held
 //! still breaks (left click), as on Bedrock. Buttons go through the
 //! controller bindings (the virtual pad `horizon-ctl pad` uses).
@@ -52,10 +53,9 @@ enum Finger {
     },
     /// Holding a controller button.
     Press(Button),
-    /// Holding a trigger (0 = use, 1 = attack) from its button; moving the
-    /// same finger turns the view like `Look`, and the trigger stays held
-    /// until it lifts, wherever it slides.
-    Trigger { i: usize, last: [f64; 2], since: Instant },
+    /// Holding a trigger (0 = use, 1 = attack) from its button. It stays held
+    /// until the finger lifts, wherever it slides, and never turns the view.
+    Trigger { i: usize, since: Instant },
     /// Dragging a control in the editor, from this offset to its centre.
     Drag(Id, [f32; 2]),
     /// Took over a hotbar slot or the keyboard; nothing until it lifts.
@@ -764,7 +764,7 @@ impl Game<'_> {
                     && matches!(control, Id::Attack | Id::Use)
                 {
                     let i = if control == Id::Attack { 1 } else { 0 };
-                    Finger::Trigger { i, last: pos, since: Instant::now() }
+                    Finger::Trigger { i, since: Instant::now() }
                 } else if let Some(control) = gui.hit(&self.touch.layout, p, false) {
                     let finger = self.touch_press(control);
                     if matches!(finger, Finger::Stick) {
@@ -797,13 +797,8 @@ impl Game<'_> {
                     self.mouse.on_move(0.0, 0.0, dx, dy, true, true);
                     self.last_input = Instant::now();
                 }
-                Some(Finger::Trigger { i, last, since }) => {
-                    // The attack (or use) button's finger turns the view too.
-                    let (dx, dy) = (pos[0] - last[0], pos[1] - last[1]);
-                    self.touch.fingers.insert(id, Finger::Trigger { i, last: pos, since });
-                    self.mouse.on_move(0.0, 0.0, dx, dy, true, true);
-                    self.last_input = Instant::now();
-                }
+                // A finger that went down on a button (attack and use too)
+                // never turns the view.
                 _ => {}
             },
             TouchPhase::Ended | TouchPhase::Cancelled => match self.touch.fingers.remove(&id) {
@@ -816,7 +811,7 @@ impl Game<'_> {
                     self.pad.injected.left = [0.0, 0.0];
                 }
                 Some(Finger::Press(button)) => self.pad.injected.set(button, false),
-                Some(Finger::Trigger { i, since, .. }) if since.elapsed().as_millis() < HOLD_MS => {
+                Some(Finger::Trigger { i, since }) if since.elapsed().as_millis() < HOLD_MS => {
                     // A short tap: keep it down a few frames so a tick sees
                     // one hit (or one use).
                     self.pad.injected.triggers[i] = 1.0;
