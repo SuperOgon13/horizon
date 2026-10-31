@@ -26,18 +26,19 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK and Build Tools
+      - name: Accept Licenses and Install NDK
         run: |
-          # Устанавливаем NDK 27 и Build Tools 35 (как в скрипте)
+          # Принудительно принимаем все лицензии
+          yes | sdkmanager --licenses || true
+          # Устанавливаем нужные пакеты
           sdkmanager "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35"
 
       - name: Run Author's Build Script
         run: |
           chmod +x packaging/android/build_apk.sh
-          # Запускаем скрипт автора
+          # Запускаем скрипт автора, передавая ему пути
           ./packaging/android/build_apk.sh
         env:
-          # Указываем пути, чтобы скрипт не искал их сам
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
 
