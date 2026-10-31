@@ -23,20 +23,16 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Licenses and Install NDK
+      - name: Install Android NDK and Build Tools
         run: |
-          # Принудительно принимаем все лицензии
-          yes | sdkmanager --licenses || true
-          # Устанавливаем нужные пакеты
-          sdkmanager "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35"
+          # Принимаем лицензии
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          # Устанавливаем нужные пакеты напрямую
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35"
 
       - name: Run Author's Build Script
         run: |
           chmod +x packaging/android/build_apk.sh
-          # Запускаем скрипт автора, передавая ему пути
           ./packaging/android/build_apk.sh
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
